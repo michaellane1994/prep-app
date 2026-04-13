@@ -382,23 +382,86 @@ textarea.form-input { resize:vertical; min-height:80px; }
 .toast.success { background:var(--green-700); }
 @keyframes toastIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
 
+/* ─── Mobile topbar ──────────────────────────────────────────────────────── */
+.mobile-topbar { display:none; position:fixed; top:0; left:0; right:0; height:56px; background:var(--sidebar-bg); z-index:100; align-items:center; justify-content:space-between; padding:0 16px; }
+.mobile-topbar-logo { font-family:'Playfair Display',serif; font-size:18px; font-weight:700; color:#fff; letter-spacing:-.3px; }
+.mobile-topbar-logo span { color:var(--green-300); }
+.mobile-topbar-right { display:flex; align-items:center; gap:8px; }
+.hamburger { background:none; border:none; cursor:pointer; padding:6px; color:rgba(255,255,255,.8); display:flex; align-items:center; justify-content:center; }
+.hamburger svg { width:22px; height:22px; display:block; }
+.sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:98; }
+.sidebar-overlay.open { display:block; }
+
 /* ─── Responsive ─────────────────────────────────────────────────────────── */
-@media(max-width:900px){
-  .app{grid-template-columns:1fr;grid-template-rows:auto 1fr;}
-  .sidebar{height:auto;flex-direction:row;position:sticky;top:0;z-index:50;padding:10px 16px;overflow-x:auto;overflow-y:hidden;}
-  .logo{margin-bottom:0;margin-right:16px;}
-  .nav-section{display:flex;gap:4px;margin-bottom:0;align-items:center;}
-  .nav-label,.sidebar-spacer,.dark-row,.sync-panel{display:none;}
-  .section{padding:24px 20px;}
-  .pantry-grid{grid-template-columns:1fr;}
-  .stats-row{grid-template-columns:repeat(2,1fr);}
-  .today-banner{flex-direction:column;align-items:flex-start;}
-  .today-input-row{max-width:100%;width:100%;}
+@media(max-width:768px){
+  .app { grid-template-columns:1fr; }
+  .mobile-topbar { display:flex; }
+
+  /* Sidebar slides in from left */
+  .sidebar { position:fixed; top:0; left:0; height:100vh; z-index:99; transform:translateX(-100%); transition:transform .25s ease; width:260px; }
+  .sidebar.open { transform:translateX(0); }
+
+  .main { height:auto; min-height:100vh; padding-top:56px; }
+  .section { padding:20px 16px; }
+
+  /* Stats */
+  .stats-row { grid-template-columns:repeat(2,1fr); gap:10px; }
+  .stat-num { font-size:22px; }
+
+  /* Pantry */
+  .pantry-grid { grid-template-columns:1fr; }
+  .today-banner { flex-direction:column; align-items:flex-start; gap:12px; padding:20px; }
+  .today-input-row { max-width:100%; width:100%; flex-wrap:wrap; }
+  .today-input { min-width:0; width:100%; }
+  .today-cat-select { flex:1; }
+
+  /* Recipes */
+  .recipes-grid { grid-template-columns:1fr; }
+  .recipe-filters { gap:6px; overflow-x:auto; flex-wrap:nowrap; padding-bottom:4px; -webkit-overflow-scrolling:touch; }
+  .filter-chip { white-space:nowrap; flex-shrink:0; }
+  .header-actions { flex-wrap:wrap; gap:6px; }
+  .header-actions .btn { font-size:12px; padding:8px 12px; }
+  .page-title { font-size:24px; }
+  .page-header { flex-direction:column; align-items:flex-start; gap:12px; }
+
+  /* Ingredients columns */
+  .ing-columns { grid-template-columns:1fr; }
+
+  /* Recipe detail modal */
+  .recipe-detail-meta { flex-wrap:wrap; gap:8px; }
+  .detail-meta-item { min-width:calc(50% - 8px); }
+
+  /* Modals */
+  .modal-overlay { align-items:flex-end; padding:0; }
+  .modal { border-radius:var(--radius-xl) var(--radius-xl) 0 0; max-height:90vh; overflow-y:auto; }
+  .modal-wide { max-width:100%; }
+  .web-recipes-grid { grid-template-columns:repeat(2,1fr); max-height:50vh; }
+
+  /* Settings */
+  .settings-card { padding:20px 16px; }
+
+  /* Toast bottom-left on mobile so it doesn't overlap content */
+  .toast-container { bottom:16px; right:16px; left:16px; }
+  .toast { min-width:0; width:100%; }
+
+  /* Sync panel in sidebar — keep visible */
+  .sync-panel { margin-top:16px; }
 }
 </style>
 </head>
 <body>
 <div class="app">
+
+<!-- ── Mobile Topbar ─────────────────────────────────────────────────────── -->
+<header class="mobile-topbar">
+  <div class="mobile-topbar-logo">prep<span>.</span></div>
+  <div class="mobile-topbar-right">
+    <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+  </div>
+</header>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
 <!-- ── Sidebar ───────────────────────────────────────────────────────────── -->
 <aside class="sidebar">
@@ -1704,7 +1767,16 @@ function updateStats() {
 /* ═══════════════════════════════════════════════════════════════════════════
    SECTIONS / MODALS
 ═══════════════════════════════════════════════════════════════════════════ */
+function toggleSidebar() {
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+function closeSidebar() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+}
 function showSection(name) {
+  if (window.innerWidth <= 768) closeSidebar();
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('section-'+name).classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
