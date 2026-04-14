@@ -288,7 +288,7 @@ a { text-decoration:none; color:inherit; }
 /* ─── Modals ─────────────────────────────────────────────────────────────── */
 .modal-overlay { display:none; position:fixed; inset:0; background:rgba(10,35,24,.55); backdrop-filter:blur(6px); z-index:100; align-items:center; justify-content:center; padding:24px; }
 .modal-overlay.open { display:flex; }
-.modal { background:var(--surface); border-radius:var(--radius-xl); padding:36px; width:100%; max-width:560px; box-shadow:var(--shadow-lg); max-height:90vh; overflow-y:auto; border:1px solid var(--border); animation:slideUp .25s cubic-bezier(.4,0,.2,1); }
+.modal { background:var(--surface); border-radius:var(--radius-xl); padding:36px; width:100%; max-width:560px; box-shadow:var(--shadow-lg); max-height:90vh; overflow-y:auto; border:1px solid var(--border); animation:slideUp .25s cubic-bezier(.4,0,.2,1); position:relative; }
 @keyframes slideUp { from{opacity:0;transform:translateY(20px) scale(.97)} to{opacity:1;transform:translateY(0) scale(1)} }
 .modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; }
 .modal-title { font-family:'Playfair Display',serif; font-size:24px; font-weight:600; color:var(--ink); }
@@ -825,10 +825,11 @@ function buildResponse(obj) {
 <!-- ── Recipe Detail Modal ────────────────────────────────────────────────── -->
 <div class="modal-overlay" id="recipe-detail-modal">
   <div class="modal">
+    <button onclick="closeModal('recipe-detail-modal')" style="position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:50%;background:var(--border);border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:var(--muted);z-index:1;">✕</button>
     <div id="recipe-detail-content"></div>
-    <div class="modal-footer">
+    <div class="modal-footer" id="recipe-detail-footer">
       <button class="btn btn-danger btn-sm" id="detail-delete-btn">🗑 Delete</button>
-      <button class="btn btn-secondary" onclick="closeModal('recipe-detail-modal')">Close</button>
+      <button class="btn btn-secondary" id="detail-edit-btn">✏️ Edit</button>
       <button class="btn btn-primary" id="detail-cook-btn">👨‍🍳 I Made This!</button>
     </div>
   </div>
@@ -1451,7 +1452,56 @@ function openRecipeDetail(id) {
     </div>`;
   document.getElementById('detail-cook-btn').onclick   = () => markCooked(id);
   document.getElementById('detail-delete-btn').onclick = () => deleteRecipe(id);
+  document.getElementById('detail-edit-btn').onclick   = () => openRecipeEdit(id);
   openModal('recipe-detail-modal');
+}
+function openRecipeEdit(id) {
+  const r = recipes.find(r=>r.id===id); if (!r) return;
+  const ingsText = r.ingredients.map(i=>`${i.qty?i.qty+' ':''}${i.name}`).join('\n');
+  document.getElementById('recipe-detail-content').innerHTML = `
+    <div style="padding:4px 0 16px">
+      <div class="detail-section-title" style="margin-bottom:16px">Edit Recipe</div>
+      <div class="form-group"><label class="form-label">Name</label>
+        <input class="form-input" id="edit-name" value="${r.name.replace(/"/g,'&quot;')}"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Prep (min)</label>
+          <input class="form-input" type="number" id="edit-prep" value="${r.prepTime}"></div>
+        <div class="form-group"><label class="form-label">Cook (min)</label>
+          <input class="form-input" type="number" id="edit-cook" value="${r.cookTime}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Servings</label>
+          <input class="form-input" type="number" id="edit-servings" value="${r.servings}"></div>
+        <div class="form-group"><label class="form-label">Tags (comma-separated)</label>
+          <input class="form-input" id="edit-tags" value="${(r.tags||[]).join(', ')}"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Ingredients (one per line)</label>
+        <textarea class="form-input" id="edit-ingredients" rows="6">${ingsText}</textarea></div>
+      <div class="form-group"><label class="form-label">Instructions</label>
+        <textarea class="form-input" id="edit-instructions" rows="5">${r.instructions}</textarea></div>
+    </div>`;
+  document.getElementById('recipe-detail-footer').innerHTML = `
+    <button class="btn btn-secondary" onclick="openRecipeDetail('${id}')">Cancel</button>
+    <button class="btn btn-primary" onclick="saveRecipeEdit('${id}')">Save Changes</button>`;
+}
+function saveRecipeEdit(id) {
+  const r = recipes.find(r=>r.id===id); if (!r) return;
+  r.name         = document.getElementById('edit-name').value.trim() || r.name;
+  r.prepTime     = parseInt(document.getElementById('edit-prep').value)||0;
+  r.cookTime     = parseInt(document.getElementById('edit-cook').value)||0;
+  r.servings     = parseInt(document.getElementById('edit-servings').value)||r.servings;
+  r.tags         = document.getElementById('edit-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  r.instructions = document.getElementById('edit-instructions').value.trim();
+  r.ingredients  = document.getElementById('edit-ingredients').value
+    .split('\n').map(line=>line.trim()).filter(Boolean).map(line => {
+      const m = line.match(/^([\d¼½¾⅓⅔⅛⅜⅝⅞\/\s\.\-]+(?:cup|tbsp|tsp|oz|g|kg|lb|ml|l|clove|cloves|bunch|piece|pieces|handful|pinch|sprig|sprigs|to taste)?s?\.?)\s+(.+)/i);
+      return m ? {qty:m[1].trim(), name:m[2].trim()} : {qty:'', name:line};
+    });
+  saveLocal('recipes', recipes);
+  renderRecipes(); renderSaved(); updateStats();
+  scheduleAutoPush();
+  toast('✓ Recipe updated','success');
+  openRecipeDetail(id);
 }
 function markCooked(id) {
   const r = recipes.find(r=>r.id===id); if (!r) return;
